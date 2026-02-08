@@ -16,6 +16,7 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
     implementation 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
+    implementation 'org.slf4j:slf4j-simple:2.0.9'
 
     implementation 'org.jsoup:jsoup:1.22.1'
     implementation 'io.javalin:javalin:2.8.0'

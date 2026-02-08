@@ -5,6 +5,7 @@ import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.jsoup.Jsoup;
 
@@ -12,6 +13,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import java.io.IOException;
+import java.text.Normalizer;
 import java.util.Scanner;
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
@@ -32,6 +34,7 @@ public class Main
             System.err.println("Error al compilar la URL: " + e.getMessage() );
         } catch ( Exception e){
             System.err.println("Error de manera general. " + e.getMessage() );
+            e.printStackTrace();
         }
 
         escaner.close();
@@ -44,23 +47,37 @@ public class Main
         {
             HttpGet httpget = new HttpGet( url );
 
-            ClassicHttpResponse response = httpclient.execute( httpget, res -> {
-                return res;
+            httpclient.execute( httpget, response -> {
+
+                String tipoDeContenido = "desconocido";
+
+                if ( response.getFirstHeader("Content-Type") != null )
+                {
+                    tipoDeContenido = response.getFirstHeader("Content-Type").getValue();
+                }
+
+                System.out.println("\na) Tipo de recurso: " +tipoDeContenido);
+
+                HttpEntity entity = response.getEntity();
+
+                if ( entity != null )
+                {
+
+                    String contenido = EntityUtils.toString(response.getEntity());
+
+                    if (tipoDeContenido.contains("text/html")) {
+                        verificadorHTML(contenido, url);
+                    } else {
+                        System.out.println("El recurso no es de tipo HTML, por ello no se puede verificar este tipo de URL o direccion no valida.");
+                    }
+
+                    EntityUtils.consume(entity);
+
+                }
+
+                return null;
+
             });
-
-            String TipoDeContenido = response.getFirstHeader("Content-Type").getValue();
-            System.out.println("\na) Tipo de recurso: " + TipoDeContenido );
-
-            String contenido = EntityUtils.toString( response.getEntity() );
-
-            if ( TipoDeContenido.contains("text/html") )
-            {
-                verificadorHTML( contenido, url );
-            }
-            else
-            {
-                System.out.println("El recurso no es de tipo HTML, por ello no se puede verificar este tipo de URL o direccion no valida.");
-            }
 
         }
     }
@@ -90,7 +107,103 @@ public class Main
         System.out.println("3- Cantidad de imagenes en los parrafos: " + imagenesEnParrafos );
 
         //Punto #4
+        System.out.println("4- Cantidad de formularios en el documento y específicar los GET y POST: ");
+        Elements forms = documento.select("form");
+        int formPost = 0;
+        int formGet = 0;
+
+        for ( Element form : forms )
+        {
+            String metodo = form.attr("method").toUpperCase();
+
+            if ( metodo.isEmpty() )
+            {
+                formGet++;
+            }
+            else if ( metodo.equals("GET") )
+            {
+                formGet++;
+            }
+            else if ( metodo.equals("POST") )
+            {
+                formPost++;
+            }
+
+        }
+
+        System.out.println("Cantidad de Forms: " + forms );
+        System.out.println("Cantidad de Form tipo Post: " +  formPost );
+        System.out.println("Cantidad de Form tipo Get: " +  formGet );
+
+        //Punto #5
+        int formNumero = 1;
+        for ( Element form : forms )
+        {
+            Elements inputs = documento.select("input");
+            System.out.println("\n 5- Campos de input y su respectivo tipo en el documento:");
+            System.out.println("Formulario: " + formNumero + ":" );
+
+            for ( Element input : inputs )
+            {
+                String tipo = input.attr("type");
+
+                if ( tipo.isEmpty() )
+                {
+                    tipo = "text";
+                }
+
+                System.out.println(" -Input tipo: " + tipo );
+
+            }
+
+            formNumero++;
+
+        }
+
+        //Punto #6
+        System.out.println("\n 6- Para cada formulario parseado identificar que el envio sea POST, peticion al servidor con parametro asignatura, valor practica1 y heather matricula-id: ");
+
+        formNumero = 1;
+
+        for ( Element form : forms )
+        {
+            String metodo = form.attr("method").toUpperCase();
+
+            if ( metodo.equals("POST") )
+            {
+                System.out.println(" Formulario: " + formNumero + ":" );
+                System.out.println(" -Metodo POST: " );
+
+                Element asignatura = form.select("input(name=asignatura), select(name=asignatura)").first();
+                Element practica = form.select("input(name=practica1)").first();
+                Element matricula  = form.select("input(name=matricula)").first();
+
+                if ( asignatura != null )
+                {
+                    System.out.println(" -Parametros [asignatura]: " +asignatura.attr("valor" ) );
+                }
+
+                if ( practica != null )
+                {
+                    System.out.println(" -Parametro [practica1]: " +practica.attr("valor" ) );
+                }
+
+                if ( matricula != null )
+                {
+                    System.out.println(" -Header matricula-id: " +matricula.attr("value" ) );
+                }
+
+            }
+
+            formNumero++;
+
+        }
+
+        System.out.println("\n 7- La informacion debe ser mostrada por la salida estandar ");
 
     }
+
+
+
 
 }

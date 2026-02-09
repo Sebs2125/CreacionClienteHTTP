@@ -2,11 +2,15 @@ package org.example;
 
 import io.javalin.Javalin;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.NameValuePair;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.jsoup.Jsoup;
 
 import org.jsoup.nodes.Document;
@@ -14,6 +18,8 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import java.io.IOException;
 import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
@@ -131,7 +137,7 @@ public class Main
 
         }
 
-        System.out.println("Cantidad de Forms: " + forms );
+        System.out.println("Cantidad de Forms: " + forms.size() );
         System.out.println("Cantidad de Form tipo Post: " +  formPost );
         System.out.println("Cantidad de Form tipo Get: " +  formGet );
 
@@ -139,20 +145,26 @@ public class Main
         int formNumero = 1;
         for ( Element form : forms )
         {
-            Elements inputs = documento.select("input");
+            Elements inputs = form.select("input");
             System.out.println("\n 5- Campos de input y su respectivo tipo en el documento:");
             System.out.println("Formulario: " + formNumero + ":" );
+
+            if ( inputs.isEmpty() )
+            {
+                System.out.println("No posee inputs");
+            }
 
             for ( Element input : inputs )
             {
                 String tipo = input.attr("type");
+                String nombre = input.attr("name");
 
                 if ( tipo.isEmpty() )
                 {
                     tipo = "text";
                 }
 
-                System.out.println(" -Input tipo: " + tipo );
+                System.out.println(" -Input: name=' " + nombre + " ', tipo=' " + tipo + " " );
 
             }
 
@@ -171,26 +183,50 @@ public class Main
 
             if ( metodo.equals("POST") )
             {
-                System.out.println(" Formulario: " + formNumero + ":" );
-                System.out.println(" -Metodo POST: " );
+                System.out.println(" Formulario " + formNumero + "(POST):" );
 
-                Element asignatura = form.select("input(name=asignatura), select(name=asignatura)").first();
-                Element practica = form.select("input(name=practica1)").first();
-                Element matricula  = form.select("input(name=matricula)").first();
+                String formAction = form.attr("action");
+                String formUrl = formAction;
 
-                if ( asignatura != null )
+                if (!formAction.isEmpty() && !formAction.startsWith("http") )
                 {
-                    System.out.println(" -Parametros [asignatura]: " +asignatura.attr("valor" ) );
+                    if ( formAction.startsWith("?") )
+                    {
+                        formUrl = url + formAction;
+                    }
+                    else
+                    {
+                        formUrl = url.replaceAll("\\?.*", "") + "/" + formAction;
+                    }
+                }
+                else if ( formAction.isEmpty() )
+                {
+                    formUrl = url;
                 }
 
-                if ( practica != null )
-                {
-                    System.out.println(" -Parametro [practica1]: " +practica.attr("valor" ) );
-                }
+                System.out.println(" - Action Url: " + formUrl );
+                System.out.println(" - Metodo: POST");
 
-                if ( matricula != null )
+                try ( CloseableHttpClient httpClient = HttpClients.createDefault() )
                 {
-                    System.out.println(" -Header matricula-id: " +matricula.attr("value" ) );
+                    HttpPost httpPost = new HttpPost( formUrl );
+
+                    httpPost.setHeader("matricula-id", "2023-0907");
+
+                    List<NameValuePair> parametros = new ArrayList<>();
+                    parametros.add( new BasicNameValuePair("asignatura", "practica1" ) );
+                    httpPost.setEntity(new UrlEncodedFormEntity(parametros));
+
+                    httpClient.execute(httpPost, response -> {
+                        System.out.println(" - Respuesta del server: " + response.getCode() );
+                        System.out.println(" - Parametro enviado: asignatura=practica1" );
+                        System.out.println(" - Header enviado: matricula-id=2023-0907" );
+                        return null;
+                    });
+
+                }catch (Exception e)
+                {
+                    System.out.println("- Error referido a la peticion: " + e.getMessage() );
                 }
 
             }
@@ -198,8 +234,6 @@ public class Main
             formNumero++;
 
         }
-
-        System.out.println("\n 7- La informacion debe ser mostrada por la salida estandar ");
 
     }
 
